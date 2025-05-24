@@ -7,13 +7,7 @@ use std::{
 use enum_dispatch::enum_dispatch;
 use inotify::{EventMask, Inotify, WatchMask};
 use sequoia_openpgp::{
-	Cert, Fingerprint,
-	armor::{Kind, Reader, ReaderMode},
-	cert::ValidCert,
-	packet::{Key, UserID},
-	parse::Parse,
-	policy::StandardPolicy,
-	types::HashAlgorithm,
+	Cert, Fingerprint, parse::Parse, policy::StandardPolicy, types::HashAlgorithm,
 };
 use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
@@ -192,24 +186,20 @@ impl Drop for FileKeyProvider {
 	}
 }
 
-fn sanitize_cert(cert: Cert, target_email: &str) -> sequoia_openpgp::Result<Cert> {
+fn sanitize_cert(cert: Cert, target_email: &str) -> Cert {
 	// 1. Keep only the one UserID we care about.
-	let cert = cert
-		.retain_userids(|ua| ua.userid().email().ok().flatten().as_deref() == Some(target_email));
+	let cert = cert.retain_userids(|ua| ua.userid().email().ok().flatten() == Some(target_email));
 	// 2. Strip out any UserAttributes (e.g. photo packets).
 	let cert = cert.retain_user_attributes(|_| false);
 	// 3. Keep only subkeys that can encrypt or sign.
-	let cert = cert.retain_subkeys(|sk| {
+
+	cert.retain_subkeys(|sk| {
 		// Look at the first self-signature’s key flags.
 		sk.self_signatures()
 			.next()
 			.and_then(|sig| sig.key_flags())
-			.map_or(false, |flags| {
-				flags.for_transport_encryption() || flags.for_signing()
-			})
-	});
-
-	Ok(cert)
+			.is_some_and(|flags| flags.for_transport_encryption() || flags.for_signing())
+	})
 }
 
 impl KeyProvider for FileKeyProvider {
@@ -224,8 +214,8 @@ impl KeyProvider for FileKeyProvider {
 					.cloned()
 					.map(|cert| (lp.clone(), d.clone(), cert))
 			})
-			.and_then(|(local_part, domain, cert)| {
-				sanitize_cert(cert, &format!("{}@{}", local_part, domain)).ok()
+			.map(|(local_part, domain, cert)| {
+				sanitize_cert(cert, &format!("{local_part}@{domain}"))
 			})
 	}
 }

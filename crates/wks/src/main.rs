@@ -4,7 +4,7 @@ use std::{ops::Deref, path::PathBuf, sync::Arc};
 
 use axum::{
 	Router,
-	extract::{Path, Request, State},
+	extract::{Path, State},
 	http::StatusCode,
 	response::IntoResponse,
 	routing::get,
