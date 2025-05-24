@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package jmap.core;
+
+import "google/protobuf/struct.proto";
+
+import "core.proto";
+import "mail.proto";
+
+// The Session resource, returned by GET /.well-known/jmap or via autodiscovery
+message Session {
+  // Capabilities advertised by the server: key is capability URI
+  map<string, Capability> capabilities = 1;
+  // Accounts accessible by the client: key is accountId
+  map<string, Account> accounts = 2;
+  // Default account for each capability: key is capability URI, value is accountId
+  map<string, string> primary_accounts = 3;
+  string username = 4;
+  string api_url = 5;
+  string download_url = 6;
+  string upload_url = 7;
+  string event_source_url = 8;
+  string state = 9;
+}
+
+// Generic capability wrapper: core has its own structure, others are opaque JSON
+message Capability {
+  oneof details {
+    CoreCapability core = 1;
+    jmap.mail.MailCapability mail = 2;
+    google.protobuf.Struct other = 3;
+  }
+}

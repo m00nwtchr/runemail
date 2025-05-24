@@ -1,0 +1,6 @@
+[package]
+name = "jmap-protobuf"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]

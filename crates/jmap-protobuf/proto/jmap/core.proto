@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package jmap.core;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// Core JMAP messages and types, based on RFC 8620 and the core specification
+
+// urn:ietf:params:jmap:core capability details
+message CoreCapability {
+  uint64 max_size_upload = 1;
+  uint32 max_concurrent_upload = 2;
+  uint64 max_size_request = 3;
+  uint32 max_concurrent_requests = 4;
+  uint32 max_calls_in_request = 5;
+  uint32 max_objects_in_get = 6;
+  uint32 max_objects_in_set = 7;
+  repeated string collation_algorithms = 8;
+}
+
+// Account descriptor within a Session
+message Account {
+  string name = 1;
+  bool is_personal = 2;
+  bool is_read_only = 3;
+  // Per-capability account-level settings
+  map<string, google.protobuf.Struct> account_capabilities = 4;
+}
+
+// Request envelope for batched JMAP method calls
+message Request {
+  repeated string using = 1;
+  repeated Invocation method_calls = 2;
+  map<string, string> created_ids = 3;
+}
+
+// Single method invocation: [name, arguments, callId]
+message Invocation {
+  string name = 1;
+  google.protobuf.Struct arguments = 2;
+  string method_call_id = 3;
+}
+
+// Response envelope, containing ordered method responses
+message Response {
+  repeated InvocationResult method_responses = 1;
+  string session_state = 2;
+  map<string, string> created_ids = 3;
+  repeated Error error = 4;
+}
+
+// Single method response: [name, arguments, callId]
+message InvocationResult {
+  string name = 1;
+  google.protobuf.Struct arguments = 2;
+  string method_call_id = 3;
+}
+
+// Standard error structure for method-level errors
+message Error {
+  string type = 1;
+  string description = 2;
+}
+
+// Push StateChange notification
+message StateChange {
+  string type = 1; // value: "StateChange"
+  map<string, TypeState> changed = 2;
+}
+
+// Map of type names to state strings
+message TypeState {
+  map<string, string> state = 1;
+}
+
+// Push subscription resource
+message PushSubscription {
+  string id = 1;
+  string device_client_id = 2;
+  string url = 3;
+  EncryptionKeys keys = 4;
+  string verification_code = 5;
+  google.protobuf.Timestamp expires = 6;
+  repeated string types = 7;
+}
+
+// Client-provided keys for encrypted push
+message EncryptionKeys {
+  string p256dh = 1;
+  string auth = 2;
+}
+
+// Blob/copy method request and response definitions
+message BlobCopyRequest {
+  string from_account_id = 1;
+  string account_id = 2;
+  repeated string blob_ids = 3;
+}
+
+message BlobCopyResponse {
+  string from_account_id = 1;
+  string account_id = 2;
+  map<string, string> copied = 3;
+  map<string, SetError> not_copied = 4;
+}
+
+// Generic SetError as defined in core spec Section 5.3
+message SetError {
+  string type = 1;
+  string description = 2;
+}

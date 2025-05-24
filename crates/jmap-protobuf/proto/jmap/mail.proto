@@ -1,0 +1,161 @@
+syntax = "proto3";
+
+package jmap.mail;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "core.proto";
+
+// Additional capability details for urn:ietf:params:jmap:mail
+message MailCapability {
+  // UnsignedInt|null
+  google.protobuf.UInt64Value max_mailboxes_per_email = 1;
+  // UnsignedInt|null
+  google.protobuf.UInt64Value max_mailbox_depth = 2;
+  // UnsignedInt
+  uint64 max_size_mailbox_name = 3;
+  // UnsignedInt
+  uint64 max_size_attachments_per_email = 4;
+  // String[]
+  repeated string email_query_sort_options = 5;
+  // Boolean
+  bool may_create_top_level_mailbox = 6;
+}
+
+// Mailbox data type
+message Mailbox {
+  string id = 1;
+  string name = 2;
+  // Id|null
+  google.protobuf.StringValue parent_id = 3;
+  // String|null
+  google.protobuf.StringValue role = 4;
+  // UnsignedInt
+  uint32 sort_order = 5;
+  // UnsignedInt
+  uint32 total_emails = 6;
+  // UnsignedInt
+  uint32 unread_emails = 7;
+  // UnsignedInt
+  uint32 total_threads = 8;
+  // UnsignedInt
+  uint32 unread_threads = 9;
+  MailboxRights my_rights = 10;
+}
+
+// Rights for a Mailbox, compatible with IMAP ACLs
+message MailboxRights {
+  bool may_read_items = 1;
+  bool may_add_items = 2;
+  bool may_remove_items = 3;
+}
+
+// Thread data type: flat list of Email ids
+message Thread {
+  string id = 1;
+  repeated string email_ids = 2;
+}
+
+// Representation of an Email header or address
+message EmailAddress {
+  string name = 1;
+  string email = 2;
+}
+
+// A part of an Email body
+message EmailBodyPart {
+  string part_id = 1;
+  string type = 2;
+  // inline or attachment
+  bool is_inline = 3;
+  // UnsignedInt
+  uint64 size = 4;
+  // Blob ids referencing the content
+  repeated string blob_ids = 5;
+}
+
+// Email data type
+message Email {
+  string id = 1;
+  string thread_id = 2;
+  // mailboxId -> true
+  map<string, bool> mailbox_ids = 3;
+  // keyword -> true
+  map<string, bool> keywords = 4;
+  bool has_attachment = 5;
+  repeated EmailAddress from = 6;
+  repeated EmailAddress to = 7;
+  repeated EmailAddress cc = 8;
+  repeated EmailAddress bcc = 9;
+  string subject = 10;
+  string preview = 11;
+  google.protobuf.Timestamp received_at = 12;
+  // UnsignedInt
+  uint64 size = 13;
+  // Full MIME tree structure
+  repeated EmailBodyPart body_structure = 14;
+  // Flattened plaintext parts
+  repeated EmailBodyPart text_body = 15;
+  // Flattened HTML parts
+  repeated EmailBodyPart html_body = 16;
+  // Attachment parts
+  repeated EmailBodyPart attachments = 17;
+  // partId -> decoded value
+  map<string, string> body_values = 18;
+}
+
+// Snippet of search results
+message SearchSnippetPart {
+  string type = 1;
+  string text = 2;
+  repeated uint32 indexes = 3;
+}
+
+message SearchSnippet {
+  string id = 1;
+  repeated SearchSnippetPart parts = 2;
+}
+
+// Identity data type for submission
+message Identity {
+  string id = 1;
+  string name = 2;
+  string email = 3;
+}
+
+// Envelope for sending an Email
+message EmailSubmissionEnvelope {
+  repeated EmailAddress from = 1;
+  repeated EmailAddress to = 2;
+  repeated EmailAddress cc = 3;
+  repeated EmailAddress bcc = 4;
+  string subject = 5;
+}
+
+// EmailSubmission data type
+message EmailSubmission {
+  string id = 1;
+  string identity_id = 2;
+  EmailSubmissionEnvelope envelope = 3;
+  // delay in seconds
+  uint32 email_delay = 4;
+  // mapping of blob ids to message ids on success
+  map<string, string> on_success = 5;
+}
+
+// VacationResponse data type
+message VacationResponse {
+  string id = 1;
+  bool is_enabled = 2;
+  string subject = 3;
+  string text_body = 4;
+  string html_body = 5;
+  google.protobuf.Timestamp expires = 6;
+}
+
+// Standard SetError reused from core
+message SetError {
+  string type = 1;
+  string description = 2;
+}
