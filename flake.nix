@@ -49,7 +49,8 @@
         inherit root;
         fileset = lib.fileset.unions [
           (craneLib.fileset.commonCargoSources ./.)
-          # (lib.fileset.fileFilter (file: file.hasExt "proto") ./shared/proto/proto)
+          (lib.fileset.fileFilter (file: file.hasExt "proto") ./crates/proto/proto)
+
           # (lib.fileset.maybeMissing ./migrations)
           # (lib.fileset.maybeMissing ./.sqlx)
           (lib.fileset.maybeMissing ./rustfmt.toml)
@@ -63,11 +64,20 @@
         inherit src;
         strictDeps = true;
 
-        buildInputs = with pkgs; [] ++ lib.optionals stdenv.isDarwin [];
+        buildInputs = with pkgs;
+          [
+            nettle
+            gmp
+          ]
+          ++ lib.optionals stdenv.isDarwin [];
 
         nativeBuildInputs = with pkgs; [
           protobuf
+          pkg-config
+          llvmPackages.clangUseLLVM
         ];
+
+        LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
       };
 
       mkCargoArtifacts = craneLib: craneLib.buildDepsOnly commonArgs;
@@ -88,8 +98,8 @@
               ./Cargo.toml
               ./Cargo.lock
 
-              # (craneLib.fileset.commonCargoSources ./shared)
-              # (lib.fileset.fileFilter (file: file.hasExt "proto") ./shared/proto/proto)
+              (craneLib.fileset.commonCargoSources ./crates/proto)
+              (lib.fileset.fileFilter (file: file.hasExt "proto") ./crates/proto/proto)
 
               (craneLib.fileset.commonCargoSources crate)
               # (lib.fileset.maybeMissing (crate + /.sqlx))
@@ -108,10 +118,8 @@
           });
 
       mkPackages = craneLib: {
-        runemail-wkd = mkPackage craneLib "wkd";
+        runemail-wks = mkPackage craneLib "wks";
       };
-
-      packages = mkPackages craneLib;
 
       mkImage = name: pkg:
         pkgs.dockerTools.buildLayeredImage {
@@ -122,8 +130,6 @@
             Cmd = ["${pkg}/bin/${name}"];
           };
         };
-
-      dockerImages = lib.mapAttrs mkImage packages;
 
       mkChecks = craneLib: let
         cargoArtifacts = mkCargoArtifacts craneLib;
@@ -161,18 +167,12 @@
             cargoNextestPartitionsExtraArgs = "--no-tests=pass";
           });
       };
+
+      packages = mkPackages craneLib;
+      dockerImages = lib.mapAttrs mkImage packages;
     in {
       checks =
-        {
-          workspace-udeps = craneNightly.mkCargoDerivation (commonArgs
-            // {
-              cargoArtifacts = mkCargoArtifacts craneNightly;
-              pnameSuffix = "-udeps";
-              buildPhaseCargoCommand = "cargo udeps";
-              nativeBuildInputs = [pkgs.cargo-udeps];
-            });
-        }
-        // mkChecks craneLib
+        mkChecks craneLib
         // packages;
       packages =
         {
@@ -199,8 +199,11 @@
 
         CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER = "${pkgs.llvmPackages.clangUseLLVM}/bin/clang";
         CARGO_ENCODED_RUSTFLAGS = "-Clink-arg=-fuse-ld=${pkgs.mold}/bin/mold";
+        LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
 
+        LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath commonArgs.buildInputs;
         packages = with pkgs; [
+          patchelf
           grpcurl
           sqlx-cli
         ];

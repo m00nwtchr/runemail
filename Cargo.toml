@@ -10,3 +10,13 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace.dependencies]
+runemail-proto = { path = "crates/proto" }
+runesys = { git = "https://github.com/m00nwtchr/runesys", features = ["db"] }
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+axum = { version = "0.8", features = ["macros"] }
+
+tonic = "0.13"
+prost = "0.13"
+tonic-types = "0.13"

@@ -1,0 +1,12 @@
+[package]
+name = "runemail-proto"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tonic.workspace = true
+prost.workspace = true
+tonic-types.workspace = true
+
+[build-dependencies]
+tonic-build = "0.13"

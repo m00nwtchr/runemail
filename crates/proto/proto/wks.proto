@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package runemail.wks;
+
+service WebKeyService {
+
+}
+
+message PublishRequest {
+
+}
