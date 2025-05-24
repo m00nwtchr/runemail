@@ -38,7 +38,18 @@ impl Deref for WebKeyService {
 
 impl WKS for WebKeyService {}
 
-async fn get_key(
+async fn get_key_advanced(
+	State(wks): State<WebKeyService>,
+	Path((domain, local)): Path<(String, String)>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+	if let Some(key) = wks.provider.discover(local, domain) {
+		Ok(key.to_vec().unwrap().into_response())
+	} else {
+		Err((StatusCode::NOT_FOUND, "Not found".to_string()))
+	}
+}
+
+async fn get_key_direct(
 	State(wks): State<WebKeyService>,
 	Path(local): Path<String>,
 	Host(host): Host,
@@ -56,8 +67,12 @@ async fn get_policy() -> String {
 
 fn app(wks: WebKeyService) -> Router {
 	Router::new()
-		.route("/.well-known/openpgpkeys/hu/{local}", get(get_key))
-		.route("/.well-known/openpgpkeys/policy", get(get_policy))
+		.route(
+			"/.well-known/openpgpkey/{domain}/hu/{local}",
+			get(get_key_advanced),
+		)
+		.route("/.well-known/openpgpkey/hu/{local}", get(get_key_direct))
+		.route("/.well-known/openpgpkey/policy", get(get_policy))
 		.with_state(wks)
 }
 
