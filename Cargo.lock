@@ -2117,6 +2117,7 @@ dependencies = [
  "runesys",
  "sequoia-openpgp",
  "serde",
+ "thiserror 2.0.12",
  "tokio",
  "tokio-stream",
  "tracing",

@@ -13,6 +13,8 @@ tokio-stream = "0.1"
 axum.workspace = true
 axum-extra = "0.10"
 
+thiserror = "2"
+
 serde = { version = "1", features = ["derive"] }
 
 inotify = "0.11"
