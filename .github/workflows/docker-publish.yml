@@ -1,0 +1,116 @@
+name: Nix Docker Image Build
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ 'v*.*.*' ]
+
+env:
+  IMAGE_OWNER: ${{ github.repository_owner }}
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install the cosign tool except on PR
+      # https://github.com/sigstore/cosign-installer
+      - name: Install cosign
+        if: github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20 #v3.5.0
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: Set up Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      #      - name: Set up Cachix (optional but recommended)
+      #        uses: cachix/cachix-action@v14
+      #        with:
+      #          name: your-cachix-name
+      #          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      # Login against a Docker registry except on PR
+      # https://github.com/docker/login-action
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extract metadata (tags, labels) for Docker
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@5.7.0
+
+      - name: Build Docker images with Nix
+        run: |
+          nix build .#packages.x86_64-linux.dockerImages
+          ls -lh ./result # just to confirm output exists
+
+      - name: Load and tag image
+        id: load-images
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          # split on commas (or adjust IFS if your tags are newline-separated)
+          IFS='\n' read -r -a TAG_ARRAY <<< "$TAGS"
+          
+          # build NEW_TAGS of the form name:tag
+          NEW_TAGS=()
+          for image in result/*; do
+            name=$(basename "$image")
+            # load the tarball → image:latest
+            docker load < "$image"
+          
+            # tag every metadata-action tag
+            for tag in "${TAG_ARRAY[@]}"; do
+              new_tag="${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${name}:${tag}"
+              docker tag "${name}:latest" "$new_tag"
+              NEW_TAGS+=("$new_tag")
+            done
+          done
+
+          # export for later steps
+          echo "TAGS=${NEW_TAGS[*]}" >> $GITHUB_ENV
+
+      - name: Push images
+        if: github.event_name != 'pull_request'
+        run: |
+          IFS=' ' read -r -a TAG_ARRAY <<< "$TAGS"
+          
+          for tag in "${TAG_ARRAY[@]}"; do
+            docker push "$tag"
+          done
+
+      - name: Cosign sign images
+        if: github.event_name != 'pull_request'
+        run: |
+          IFS=' ' read -r -a TAG_ARRAY <<< "$TAGS"
+          
+          echo "${TAG_ARRAY[@]}"
+          for image in result/*; do
+            name=$(basename "$image")
+            digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$name:latest")
+
+            printf '%s\n' "${TAG_ARRAY[@]}" \
+              | grep "/${name}:" \
+              | xargs -I{} \
+                cosign sign --yes {}@"${digest#*@}"
+          done
