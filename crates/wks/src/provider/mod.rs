@@ -121,7 +121,7 @@ impl KeyStore {
 		let key = key.strip_secret_key_material();
 		let fp = key.fingerprint();
 
-		// Extract valid user IDs with policy check
+		// Extract valid user IDs with a policy check
 		let p = StandardPolicy::new();
 		let valid = key.with_policy(&p, None)?;
 
